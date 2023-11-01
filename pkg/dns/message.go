@@ -99,21 +99,21 @@ Header represents a DNS message header, as defined in RFC-1035 and RFC-4035.
 	+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 */
 type Header struct {
-	ID      uint16
-	QR      bool
-	Opcode  uint8
-	AA      bool
-	TC      bool
-	RD      bool
-	RA      bool
-	Z0      bool
-	AD      bool
-	CD      bool
-	RCode   uint8
-	QDCount uint16
-	ANCount uint16
-	NSCount uint16
-	ARCount uint16
+	ID                   uint16
+	IsResponse           bool
+	Opcode               uint8
+	IsAuthoritative      bool
+	IsTruncated          bool
+	IsRecursionDesired   bool
+	IsRecursionAvailable bool
+	Z0                   bool
+	IsAuthenticData      bool
+	IsCheckingDisabled   bool
+	RCode                uint8
+	QDCount              uint16
+	ANCount              uint16
+	NSCount              uint16
+	ARCount              uint16
 }
 
 const (
@@ -135,48 +135,48 @@ func DecodeHeader(src []byte) (int, *Header, error) {
 	}
 	flags := binary.BigEndian.Uint16(src[2:])
 	return 12, &Header{
-		ID:      binary.BigEndian.Uint16(src[0:]),
-		QR:      flags&maskQR != 0,
-		Opcode:  uint8((flags & maskOpcode) >> 11),
-		AA:      flags&maskAA != 0,
-		TC:      flags&maskTC != 0,
-		RD:      flags&maskRD != 0,
-		RA:      flags&maskRA != 0,
-		Z0:      flags&maskZ0 != 0,
-		AD:      flags&maskAD != 0,
-		CD:      flags&maskCD != 0,
-		RCode:   uint8(flags & maskRCode),
-		QDCount: binary.BigEndian.Uint16(src[4:]),
-		ANCount: binary.BigEndian.Uint16(src[6:]),
-		NSCount: binary.BigEndian.Uint16(src[8:]),
-		ARCount: binary.BigEndian.Uint16(src[10:]),
+		ID:                   binary.BigEndian.Uint16(src[0:]),
+		IsResponse:           flags&maskQR != 0,
+		Opcode:               uint8((flags & maskOpcode) >> 11),
+		IsAuthoritative:      flags&maskAA != 0,
+		IsTruncated:          flags&maskTC != 0,
+		IsRecursionDesired:   flags&maskRD != 0,
+		IsRecursionAvailable: flags&maskRA != 0,
+		Z0:                   flags&maskZ0 != 0,
+		IsAuthenticData:      flags&maskAD != 0,
+		IsCheckingDisabled:   flags&maskCD != 0,
+		RCode:                uint8(flags & maskRCode),
+		QDCount:              binary.BigEndian.Uint16(src[4:]),
+		ANCount:              binary.BigEndian.Uint16(src[6:]),
+		NSCount:              binary.BigEndian.Uint16(src[8:]),
+		ARCount:              binary.BigEndian.Uint16(src[10:]),
 	}, nil
 }
 
 func (h *Header) AppendEncoded(b []byte) []byte {
 	flags := uint16(h.Opcode)<<11 | uint16(h.RCode)
-	if h.QR {
+	if h.IsResponse {
 		flags |= maskQR
 	}
-	if h.AA {
+	if h.IsAuthoritative {
 		flags |= maskAA
 	}
-	if h.TC {
+	if h.IsTruncated {
 		flags |= maskTC
 	}
-	if h.RD {
+	if h.IsRecursionDesired {
 		flags |= maskRD
 	}
-	if h.RA {
+	if h.IsRecursionAvailable {
 		flags |= maskRA
 	}
 	if h.Z0 {
 		flags |= maskZ0
 	}
-	if h.AD {
+	if h.IsAuthenticData {
 		flags |= maskAD
 	}
-	if h.CD {
+	if h.IsCheckingDisabled {
 		flags |= maskCD
 	}
 
@@ -187,4 +187,14 @@ func (h *Header) AppendEncoded(b []byte) []byte {
 	b = binary.BigEndian.AppendUint16(b, h.NSCount)
 	b = binary.BigEndian.AppendUint16(b, h.ARCount)
 	return b
+}
+
+func NewQuery(id uint16, questions ...*Question) *Message {
+	return &Message{
+		Header: &Header{
+			ID:      id,
+			QDCount: uint16(len(questions)),
+		},
+		Questions: questions,
+	}
 }
